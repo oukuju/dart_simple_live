@@ -92,14 +92,25 @@ class DouyinDanmaku implements LiveDanmaku {
 
     var url = "$uri&signature=$sign";
     var backupUrl = url.replaceAll("webcast3-ws-web-lq", "webcast5-ws-web-lf");
+    var backupUrls = [
+      url.replaceAll("webcast3-ws-web-lq", "webcast5-ws-web-hl"),
+      url.replaceAll("webcast3-ws-web-lq", "webcast3-ws-web-hl"),
+      url.replaceAll("webcast3-ws-web-lq", "webcast3-ws-web-lf"),
+    ];
     print(url);
     webScoketUtils = WebScoketUtils(
       url: url,
       backupUrl: backupUrl,
+      backupUrls: backupUrls,
       headers: {
-        "User-Agnet": DouyinSite.kDefaultUserAgent,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "User-Agent": DouyinSite.kDefaultUserAgent,
         "Cookie": danmakuArgs.cookie,
         "Origin": "https://live.douyin.com",
+        "Referer": "https://live.douyin.com/${danmakuArgs.webRid}",
       },
       heartBeatTime: heartbeatTime,
       onMessage: (e) {
@@ -184,7 +195,7 @@ class DouyinDanmaku implements LiveDanmaku {
     var obj = PushFrame();
     obj.payloadType = 'ack';
     obj.logId = logId;
-    obj.payloadType = internalExt;
+    obj.payload = utf8.encode(internalExt);
     webScoketUtils?.sendMessage(obj.writeToBuffer());
   }
 
@@ -198,6 +209,7 @@ class DouyinDanmaku implements LiveDanmaku {
   Future stop() async {
     onMessage = null;
     onClose = null;
+    onReady = null;
     webScoketUtils?.close();
   }
 }

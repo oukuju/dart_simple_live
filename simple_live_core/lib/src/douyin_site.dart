@@ -66,6 +66,57 @@ class DouyinSite implements LiveSite {
     }
   }
 
+  Future<String> _getDanmakuCookie(String webRid) async {
+    final requestHeaders = await getRequestHeaders();
+    final baseCookie = requestHeaders["cookie"]?.toString() ?? "";
+    try {
+      final webCookie = await _getWebCookie(
+        webRid,
+      ).timeout(const Duration(seconds: 5));
+      return _mergeCookieValues(
+        baseCookie,
+        webCookie,
+        preferBase: cookie.isNotEmpty,
+      );
+    } catch (e) {
+      CoreLog.error(e);
+      return baseCookie;
+    }
+  }
+
+  String _mergeCookieValues(
+    String baseCookie,
+    String extraCookie, {
+    bool preferBase = false,
+  }) {
+    final base = _parseCookieValue(baseCookie);
+    final extra = _parseCookieValue(extraCookie);
+    final merged = preferBase ? {...extra, ...base} : {...base, ...extra};
+    return merged.entries
+        .map((entry) => "${entry.key}=${entry.value}")
+        .join("; ");
+  }
+
+  Map<String, String> _parseCookieValue(String cookieValue) {
+    final cookieMap = <String, String>{};
+    for (final part in cookieValue.split(";")) {
+      final item = part.trim();
+      if (item.isEmpty) {
+        continue;
+      }
+      final separatorIndex = item.indexOf("=");
+      if (separatorIndex <= 0) {
+        continue;
+      }
+      final key = item.substring(0, separatorIndex).trim();
+      final value = item.substring(separatorIndex + 1).trim();
+      if (key.isNotEmpty) {
+        cookieMap[key] = value;
+      }
+    }
+    return cookieMap;
+  }
+
   @override
   Future<List<LiveCategory>> getCategores() async {
     List<LiveCategory> categories = [];
@@ -482,7 +533,7 @@ class DouyinSite implements LiveSite {
 
     var roomStatus = status == 2;
     // 主要是为了获取cookie,用于弹幕websocket连接
-    var headers = await getRequestHeaders();
+    var danmakuCookie = await _getDanmakuCookie(webRid);
 
     return LiveRoomDetail(
       roomId: webRid,
@@ -506,7 +557,7 @@ class DouyinSite implements LiveSite {
         webRid: webRid,
         roomId: roomId,
         userId: userUniqueId,
-        cookie: headers["cookie"],
+        cookie: danmakuCookie,
       ),
       data: room["stream_url"],
     );
@@ -550,7 +601,7 @@ class DouyinSite implements LiveSite {
     var roomStatus = (asT<int?>(roomData["status"]) ?? 0) == 2;
 
     // 主要是为了获取cookie,用于弹幕websocket连接
-    var headers = await getRequestHeaders();
+    var danmakuCookie = await _getDanmakuCookie(webRid);
     return LiveRoomDetail(
       roomId: webRid,
       title: roomData["title"].toString(),
@@ -577,7 +628,7 @@ class DouyinSite implements LiveSite {
         webRid: webRid,
         roomId: roomId,
         userId: userUniqueId,
-        cookie: headers["cookie"],
+        cookie: danmakuCookie,
       ),
       data: roomStatus ? roomData["stream_url"] : {},
     );
@@ -599,7 +650,7 @@ class DouyinSite implements LiveSite {
     var roomStatus = (asT<int?>(room["status"]) ?? 0) == 2;
 
     // 主要是为了获取cookie,用于弹幕websocket连接
-    var headers = await getRequestHeaders();
+    var danmakuCookie = await _getDanmakuCookie(webRid);
 
     return LiveRoomDetail(
       roomId: webRid,
@@ -627,7 +678,7 @@ class DouyinSite implements LiveSite {
         webRid: webRid,
         roomId: roomId,
         userId: userUniqueId,
-        cookie: headers["cookie"],
+        cookie: danmakuCookie,
       ),
       data: roomStatus ? room["stream_url"] : {},
     );
@@ -648,9 +699,11 @@ class DouyinSite implements LiveSite {
   /// 进入直播间前需要先获取cookie
   /// - [webRid] 直播间RID
   Future<String> _getWebCookie(String webRid) async {
+    final requestHeaders = Map<String, dynamic>.from(await getRequestHeaders());
+    requestHeaders["Referer"] = "https://live.douyin.com/$webRid";
     var headResp = await HttpClient.instance.head(
       "https://live.douyin.com/$webRid",
-      header: headers,
+      header: requestHeaders,
     );
     if (headResp.statusCode == 444) {
       throw CoreError("", statusCode: 444);

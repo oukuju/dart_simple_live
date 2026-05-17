@@ -98,6 +98,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 初始化弹幕接收事件
   void initDanmau() {
     liveDanmaku.onMessage = onWSMessage;
+    liveDanmaku.onClose = onWSClose;
+    liveDanmaku.onReady = onWSReady;
   }
 
   /// 接收到WebSocket信息
@@ -138,6 +140,20 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     } else if (msg.type == LiveMessageType.superChat) {
       //superChats.add(msg.data);
     }
+  }
+
+  /// 接收 WebSocket 关闭消息
+  void onWSClose(String msg) {
+    Log.d("弹幕服务器连接状态：$msg");
+    final shouldNotify = msg.contains("失败") || msg.contains("超过最大次数");
+    if (shouldNotify && AppSettingsController.instance.danmuEnable.value) {
+      SmartDialog.showToast("弹幕连接异常：$msg");
+    }
+  }
+
+  /// WebSocket 已连接完成
+  void onWSReady() {
+    Log.d("弹幕服务器连接成功");
   }
 
   /// 加载直播间信息
